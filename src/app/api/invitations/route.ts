@@ -1,30 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { connectToDatabase } from '@/lib/mongodb'
-import { MongoClient, ObjectId } from 'mongodb'
+import { mongoService } from '@/lib/mongodb/service'
+import crypto from 'crypto'
 
-const client = new MongoClient(process.env.MONGODB_URI!)
-
-// GET - Récupérer les invitations (managers seulement)
+// GET - Récupérer les invitations du manager
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || session.user.role !== 'manager') {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await connectToDatabase()
-    const db = client.db()
-    
-    const invitations = await db.collection('invitations')
-      .find({ invitedBy: session.user.id })
-      .sort({ createdAt: -1 })
-      .toArray()
+    const userRole = (session.user as any).role
+    if (userRole !== 'manager') {
+      return NextResponse.json({ error: 'Only managers can view invitations' }, { status: 403 })
+    }
 
-    return NextResponse.json({ invitations })
+    await mongoService.connect()
     
+    const invitations = await mongoService.getInvitationsByManager(session.user.id)
+    
+    return NextResponse.json({ invitations })
+
   } catch (error) {
     console.error('Error fetching invitations:', error)
     return NextResponse.json(
@@ -39,14 +38,19 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || session.user.role !== 'manager') {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const userRole = (session.user as any).role
+    if (userRole !== 'manager') {
+      return NextResponse.json({ error: 'Only managers can send invitations' }, { status: 403 })
     }
 
     const body = await request.json()
     const { email, firstName, lastName } = body
 
-    // Validation
+    // Validation des données
     if (!email || !firstName || !lastName) {
       return NextResponse.json(
         { error: 'Email, first name, and last name are required' }, 
@@ -54,32 +58,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json(
-        { error: 'Invalid email format' }, 
+        { error: 'Please provide a valid email address' }, 
         { status: 400 }
       )
     }
 
-    await connectToDatabase()
-    const db = client.db()
+    await mongoService.connect()
 
-    // Vérifier si l'email existe déjà (utilisateur ou invitation)
-    const [existingUser, existingInvitation] = await Promise.all([
-      db.collection('users').findOne({ email: email.toLowerCase() }),
-      db.collection('invitations').findOne({ 
-        email: email.toLowerCase(), 
-        status: 'pending' 
-      })
-    ])
-
+    // Vérifier si l'utilisateur existe déjà
+    const existingUser = await mongoService.getUserByEmail(email)
     if (existingUser) {
       return NextResponse.json(
         { error: 'A user with this email already exists' }, 
         { status: 409 }
       )
     }
+
+    // Vérifier si une invitation existe déjà
+    const existingInvitation = await mongoService.getInvitationByEmail(email, 'pending')
 
     if (existingInvitation) {
       return NextResponse.json(
@@ -88,29 +86,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Créer l'invitation
-    const invitation = {
-      email: email.toLowerCase().trim(),
+    // Récupérer les infos du manager
+    const manager = await mongoService.getUserById(session.user.id)
+    if (!manager) {
+      return NextResponse.json({ error: 'Manager not found' }, { status: 404 })
+    }
+
+    // Créer l'invitation avec un token unique
+    const token = crypto.randomBytes(32).toString('hex')
+    const invitationData = {
+      email: email.toLowerCase(),
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       status: 'pending' as const,
       invitedBy: session.user.id,
-      invitedByName: `${session.user.firstName} ${session.user.lastName}`,
-      createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
+      invitedByName: `${manager.firstName} ${manager.lastName}`,
+      token
     }
 
-    const result = await db.collection('invitations').insertOne(invitation)
+    const invitation = await mongoService.createInvitation(invitationData)
 
-    // TODO: Envoyer l'email d'invitation
-    // await sendInvitationEmail(invitation)
+    // URL d'invitation pour le développement
+    const inviteUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/invite/${token}`
+    
+    console.log(`🚀 Invitation créée! URL: ${inviteUrl}`)
 
     return NextResponse.json({ 
       message: 'Invitation sent successfully',
       invitation: {
         ...invitation,
-        _id: result.insertedId
-      }
+        token: undefined // Ne pas exposer le token dans la réponse
+      },
+      inviteUrl // Pour le développement
     }, { status: 201 })
 
   } catch (error) {
@@ -127,43 +134,26 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || session.user.role !== 'manager') {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const userRole = (session.user as any).role
+    if (userRole !== 'manager') {
+      return NextResponse.json({ error: 'Only managers can cancel invitations' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
     const invitationId = searchParams.get('id')
 
     if (!invitationId) {
-      return NextResponse.json(
-        { error: 'Invitation ID is required' }, 
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invitation ID is required' }, { status: 400 })
     }
 
-    await connectToDatabase()
-    const db = client.db()
+    await mongoService.connect()
 
-    const result = await db.collection('invitations').updateOne(
-      { 
-        _id: new ObjectId(invitationId),
-        invitedBy: session.user.id,
-        status: 'pending'
-      },
-      { 
-        $set: { 
-          status: 'cancelled',
-          cancelledAt: new Date()
-        }
-      }
-    )
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { error: 'Invitation not found or already processed' }, 
-        { status: 404 }
-      )
-    }
+    // Mettre à jour le statut
+    await mongoService.updateInvitationStatus(invitationId, 'cancelled')
 
     return NextResponse.json({ message: 'Invitation cancelled successfully' })
 

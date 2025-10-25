@@ -66,6 +66,7 @@ export interface Invitation {
   expiresAt: string
   acceptedAt?: string
   userId?: string
+  token?: string // Token pour l'URL d'invitation
 }
 
 // Types dashboard

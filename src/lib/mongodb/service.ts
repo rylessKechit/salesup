@@ -250,6 +250,21 @@ export class MongoDBService {
       .toArray()
   }
 
+  async getInvitationByToken(token: string) {
+    return await this.db.collection<Invitation>('invitations').findOne({
+      token,
+      status: 'pending'
+    })
+  }
+
+  async getInvitationByEmail(email: string, status?: string) {
+    const query: any = { email: email.toLowerCase() }
+    if (status) {
+      query.status = status
+    }
+    return await this.db.collection<Invitation>('invitations').findOne(query)
+  }
+
   async updateInvitationStatus(id: string, status: Invitation['status'], additionalData?: any) {
     const updates: any = { status }
     
