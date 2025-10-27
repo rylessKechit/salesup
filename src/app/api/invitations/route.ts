@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { mongoService } from '@/lib/mongodb/service'
+import { emailService } from '@/lib/email/service'
 import crypto from 'crypto'
 
 // GET - Récupérer les invitations du manager
@@ -106,18 +107,34 @@ export async function POST(request: NextRequest) {
 
     const invitation = await mongoService.createInvitation(invitationData)
 
-    // URL d'invitation pour le développement
+    // URL d'invitation
     const inviteUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/invite/${token}`
     
+    // Envoyer l'email d'invitation
+    const emailSent = await emailService.sendInvitationEmail({
+      email: invitation.email,
+      firstName: invitation.firstName,
+      lastName: invitation.lastName,
+      invitedByName: invitation.invitedByName,
+      inviteUrl
+    })
+
+    if (!emailSent) {
+      console.warn('⚠️ Failed to send invitation email, but invitation was created')
+    }
+
     console.log(`🚀 Invitation créée! URL: ${inviteUrl}`)
 
     return NextResponse.json({ 
-      message: 'Invitation sent successfully',
+      message: emailSent 
+        ? 'Invitation sent successfully via email' 
+        : 'Invitation created, but email failed to send',
       invitation: {
         ...invitation,
         token: undefined // Ne pas exposer le token dans la réponse
       },
-      inviteUrl // Pour le développement
+      inviteUrl, // Pour le développement
+      emailSent
     }, { status: 201 })
 
   } catch (error) {

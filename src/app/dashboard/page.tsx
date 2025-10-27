@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/layout/MainLayout'
 import { DailyEntryForm } from '@/components/forms/DailyEntryForm'
 import { PerformanceCards } from '@/components/dashboard/PerformanceCards'
 import { RecentEntriesCard } from '@/components/dashboard/RecentEntriesCard'
+import { AIInsights } from '@/components/ai/AIInsights'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -147,6 +148,11 @@ export default function AgentDashboard() {
               onRefresh={refresh}
             />
           </div>
+        </div>
+
+        {/* AI Insights Section */}
+        <div className="mt-6">
+          <AIInsights />
         </div>
       </div>
     </MainLayout>

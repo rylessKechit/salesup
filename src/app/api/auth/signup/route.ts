@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { mongoService } from '@/lib/mongodb/service'
+import { emailService } from '@/lib/email/service'
 import { validateUser } from '@/lib/mongodb/schemas'
 import bcrypt from 'bcryptjs'
 
@@ -91,6 +92,13 @@ export async function POST(request: NextRequest) {
     // Marquer l'invitation comme acceptée
     await mongoService.updateInvitationStatus(invitation._id.toString(), 'accepted', {
       userId: user._id
+    })
+
+    // Envoyer l'email de bienvenue
+    await emailService.sendWelcomeEmail({
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName
     })
 
     // Retourner les données utilisateur (sans le mot de passe)
