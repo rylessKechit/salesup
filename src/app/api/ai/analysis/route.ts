@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { mongoService } from '@/lib/mongodb/service'
 import { aiAnalyzer } from '@/lib/ai/performance-analyzer'
+import { convertDailyEntryToFrontend } from '@/types'
+import type { DailyEntry as MongoDailyEntry } from '@/lib/mongodb/schemas'
 
 export async function GET() {
   try {
@@ -15,7 +17,7 @@ export async function GET() {
     await mongoService.connect()
 
     // Récupérer les données nécessaires pour l'analyse
-    const [performanceMetrics, recentEntries] = await Promise.all([
+    const [performanceMetrics, mongoRecentEntries] = await Promise.all([
       mongoService.getPerformanceMetrics(session.user.id),
       mongoService.getDailyEntriesByUser(session.user.id, 14) // 14 derniers jours
     ])
@@ -26,6 +28,9 @@ export async function GET() {
         message: 'Not enough data for AI analysis. Please add more daily entries.'
       })
     }
+
+    // Convertir les entrées MongoDB en format compatible frontend
+    const recentEntries = (mongoRecentEntries as MongoDailyEntry[]).map(convertDailyEntryToFrontend)
 
     // Générer l'analyse IA
     const analysis = await aiAnalyzer.analyzePerformance(
@@ -58,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     await mongoService.connect()
 
-    const [performanceMetrics, recentEntries] = await Promise.all([
+    const [performanceMetrics, mongoRecentEntries] = await Promise.all([
       mongoService.getPerformanceMetrics(session.user.id),
       mongoService.getDailyEntriesByUser(session.user.id, days)
     ])
@@ -69,6 +74,9 @@ export async function POST(request: NextRequest) {
         message: 'Not enough data for AI analysis.'
       })
     }
+
+    // Convertir les entrées MongoDB en format compatible frontend
+    const recentEntries = (mongoRecentEntries as MongoDailyEntry[]).map(convertDailyEntryToFrontend)
 
     // Générer l'analyse IA avec focus spécifique
     const analysis = await aiAnalyzer.analyzePerformance(

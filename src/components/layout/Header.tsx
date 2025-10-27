@@ -1,4 +1,8 @@
+'use client';
+
 import Link from 'next/link'
+import { signOut } from 'next-auth/react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -30,7 +34,21 @@ interface HeaderProps {
 }
 
 export function Header({ user }: HeaderProps) {
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const userInitials = user ? `${user.firstName[0]}${user.lastName[0]}` : 'U'
+  
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await signOut({
+        callbackUrl: '/',
+        redirect: true
+      })
+    } catch (error) {
+      console.error('Error signing out:', error)
+      setIsLoggingOut(false)
+    }
+  }
   
   return (
     <header className="border-b bg-white shadow-sm">
@@ -123,9 +141,13 @@ export function Header({ user }: HeaderProps) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600">
+              <DropdownMenuItem 
+                className="text-red-600 cursor-pointer"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>{isLoggingOut ? 'Disconnecting...' : 'Log out'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

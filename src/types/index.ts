@@ -135,3 +135,20 @@ export const INSURANCE_PACKAGES: Record<InsurancePackage['packageType'], string[
   'Smart': ['LD', 'BF'], 
   'All Inclusive': ['LD', 'BF', 'TG', 'BC', 'BQ']
 }
+
+// Utilitaires de conversion entre MongoDB et Frontend
+export function convertDailyEntryToFrontend(mongoEntry: any): DailyEntry {
+  return {
+    _id: mongoEntry._id?.toString() || '',
+    userId: mongoEntry.userId,
+    agentId: mongoEntry.agentId,
+    date: mongoEntry.date instanceof Date ? mongoEntry.date.toISOString() : mongoEntry.date,
+    contractsCount: mongoEntry.contractsCount,
+    upgradesCount: mongoEntry.upgradesCount,
+    totalUpgradeValue: mongoEntry.totalUpgradeValue,
+    insurancePackages: mongoEntry.insurancePackages || [],
+    notes: mongoEntry.notes,
+    createdAt: mongoEntry.createdAt instanceof Date ? mongoEntry.createdAt.toISOString() : mongoEntry.createdAt,
+    updatedAt: mongoEntry.updatedAt instanceof Date ? mongoEntry.updatedAt.toISOString() : mongoEntry.updatedAt
+  }
+}
