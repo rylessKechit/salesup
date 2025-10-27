@@ -9,7 +9,8 @@ import { AIInsights } from '@/components/ai/AIInsights'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, TrendingUp, Target, Calendar } from 'lucide-react'
+import { RefreshCw, TrendingUp, Target, Calendar, Plus } from 'lucide-react'
+import Link from 'next/link'
 
 export default function AgentDashboard() {
   const { data: dashboardData, loading, error, refresh } = useDashboardData()
@@ -108,6 +109,45 @@ export default function AgentDashboard() {
           </CardContent>
         </Card>
 
+        {/* Actions rapides */}
+        <div className="bg-white shadow-sm rounded-lg p-6 mb-8">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">
+            Actions rapides
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Link 
+              href="/dashboard/entry"
+              className="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-12 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-sixt-orange-500 focus:ring-offset-2"
+            >
+              <Plus className="mx-auto h-12 w-12 text-gray-400" />
+              <span className="mt-2 block text-sm font-medium text-gray-900">
+                Nouvelle saisie quotidienne
+              </span>
+            </Link>
+
+            <Link 
+              href="/voice-training"
+              className="relative block w-full rounded-lg border-2 border-dashed border-sixt-orange-300 p-12 text-center hover:border-sixt-orange-400 focus:outline-none focus:ring-2 focus:ring-sixt-orange-500 focus:ring-offset-2 bg-sixt-orange-50"
+            >
+              <div className="mx-auto h-12 w-12 text-sixt-orange-600 flex items-center justify-center">
+                🎤
+              </div>
+              <span className="mt-2 block text-sm font-medium text-sixt-orange-900">
+                Entraînement vocal IA
+              </span>
+              <span className="text-xs text-sixt-orange-700">NOUVEAU !</span>
+            </Link>
+
+            <div className="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-12 text-center opacity-50">
+              <TrendingUp className="mx-auto h-12 w-12 text-gray-400" />
+              <span className="mt-2 block text-sm font-medium text-gray-900">
+                Voir mes statistiques
+              </span>
+              <span className="text-xs text-gray-500">Bientôt disponible</span>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Daily Entry Form */}
           <div className="lg:col-span-1">
@@ -121,38 +161,41 @@ export default function AgentDashboard() {
           <div className="lg:col-span-2 space-y-6">
             {/* Performance Cards */}
             {performanceMetrics?.metrics ? (
-              <PerformanceCards metrics={performanceMetrics.metrics} />
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Performance Overview
+                </h2>
+                <PerformanceCards metrics={performanceMetrics.metrics} />
+              </div>
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <TrendingUp className="mr-2 h-5 w-5" />
-                    Performance Metrics
-                  </CardTitle>
+                  <CardTitle>Performance Overview</CardTitle>
                   <CardDescription>
-                    Your performance will be calculated after your first entries
+                    Your performance metrics will appear here once you start entering daily data
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center text-gray-500 py-8">
-                    <Target className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Start tracking your daily performance to see metrics here</p>
+                  <div className="text-center py-8">
+                    <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No performance data yet</p>
+                    <p className="text-sm text-gray-400">Fill your first daily entry to see metrics</p>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Recent Entries */}
-            <RecentEntriesCard 
-              entries={recentEntries} 
-              onRefresh={refresh}
-            />
-          </div>
-        </div>
+            {/* AI Insights */}
+            <AIInsights />
 
-        {/* AI Insights Section */}
-        <div className="mt-6">
-          <AIInsights />
+            {/* Recent Entries */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Recent Entries
+              </h2>
+              <RecentEntriesCard entries={recentEntries} />
+            </div>
+          </div>
         </div>
       </div>
     </MainLayout>

@@ -7,7 +7,7 @@ export default withAuth(
     const pathname = req.nextUrl.pathname
 
     // Si pas de token et tentative d'accès à une page protégée
-    if (!token && pathname.startsWith('/dashboard')) {
+    if (!token && (pathname.startsWith('/dashboard') || pathname.startsWith('/voice-training'))) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
 
@@ -37,10 +37,10 @@ export default withAuth(
         return NextResponse.redirect(new URL('/dashboard', req.url))
       }
 
-      // Empêcher les managers d'aller sur le dashboard agent (optionnel)
-      // if (pathname === '/dashboard' && userRole === 'manager') {
-      //   return NextResponse.redirect(new URL('/dashboard/admin', req.url))
-      // }
+      // ✅ VOICE TRAINING - Laisser passer toutes les routes voice-training
+      if (pathname.startsWith('/voice-training')) {
+        return NextResponse.next()
+      }
     }
 
     return NextResponse.next()
@@ -56,7 +56,7 @@ export default withAuth(
         }
 
         // Pages protégées nécessitent un token
-        if (pathname.startsWith('/dashboard')) {
+        if (pathname.startsWith('/dashboard') || pathname.startsWith('/voice-training')) {
           return !!token
         }
 
@@ -69,6 +69,7 @@ export default withAuth(
 export const config = {
   matcher: [
     '/dashboard/:path*',
+    '/voice-training/:path*', // ✅ Ajouter les routes voice-training
     '/login',
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ]

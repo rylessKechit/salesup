@@ -13,7 +13,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { CalendarDays, Plus, Minus, Save, CheckCircle } from 'lucide-react'
-import { INSURANCE_PACKAGES, type InsurancePackageType } from '@/lib/utils'
+
+// Types d'assurances
+type InsurancePackageType = 'Basic' | 'Smart' | 'All Inclusive'
 
 // Schema de validation
 const dailyEntrySchema = z.object({
@@ -38,7 +40,8 @@ interface DailyEntryFormProps {
 }
 
 export function DailyEntryForm({ initialData, onSuccess }: DailyEntryFormProps) {
-  const { createEntry, loading, error } = useCreateDailyEntry()
+  // ✅ Correction: utiliser 'create' du hook
+  const { create: createEntry, loading, error } = useCreateDailyEntry()
   const [success, setSuccess] = useState(false)
   const [insurancePackages, setInsurancePackages] = useState<InsuranceEntry[]>([
     { packageType: 'Basic', count: 0, value: 0 },
@@ -74,7 +77,8 @@ export function DailyEntryForm({ initialData, onSuccess }: DailyEntryFormProps) 
 
   const updateInsurancePackage = (index: number, field: 'count' | 'value', value: number) => {
     setInsurancePackages(prev => 
-      prev.map((pkg, i) => i === index ? { ...pkg, [field]: Math.max(0, value) } : pkg)
+      prev.map((pkg, i) => i === index ? 
+        { ...pkg, [field]: Math.max(0, value) } : pkg)
     )
   }
 
@@ -90,6 +94,7 @@ export function DailyEntryForm({ initialData, onSuccess }: DailyEntryFormProps) 
         insurancePackages: insurancePackages.filter(pkg => pkg.count > 0 || pkg.value > 0)
       }
 
+      // ✅ Correction: utiliser la fonction create
       await createEntry(entryData)
       setSuccess(true)
       
@@ -197,21 +202,16 @@ export function DailyEntryForm({ initialData, onSuccess }: DailyEntryFormProps) 
 
           {/* Insurance Packages */}
           <div className="space-y-4">
-            <Label className="text-base font-semibold">Insurance Packages</Label>
-            <div className="space-y-3">
+            <Label className="text-base font-medium">Insurance Packages Sold</Label>
+            <div className="space-y-4">
               {insurancePackages.map((pkg, index) => (
-                <div key={pkg.packageType} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">{pkg.packageType}</h4>
-                      <p className="text-sm text-gray-500">
-                        Codes: {INSURANCE_PACKAGES[pkg.packageType].join(', ')}
-                      </p>
-                    </div>
-                    <Badge variant="outline">{pkg.count} sold</Badge>
+                <div key={pkg.packageType} className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">{pkg.packageType}</h4>
+                    <Badge variant="outline">{pkg.packageType}</Badge>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm">Count</Label>
                       <div className="flex items-center space-x-2">
@@ -220,6 +220,7 @@ export function DailyEntryForm({ initialData, onSuccess }: DailyEntryFormProps) 
                           variant="outline"
                           size="sm"
                           onClick={() => updateInsurancePackage(index, 'count', pkg.count - 1)}
+                          disabled={pkg.count <= 0}
                         >
                           <Minus className="h-3 w-3" />
                         </Button>

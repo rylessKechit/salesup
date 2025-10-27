@@ -1,4 +1,10 @@
 import type { DailyEntry, PerformanceMetricsData } from '@/types'
+import OpenAI from 'openai'
+
+// Configuration OpenAI
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+}) : null
 
 // Types pour les conseils IA
 export interface AIInsight {
@@ -21,6 +27,8 @@ export interface AIAnalysis {
   nextGoals: string[]
   weakestArea: string
   strongestArea: string
+  aiSalesScript?: string // Nouveau : script généré par IA
+  aiObjectionHandling?: string // Nouveau : gestion objections IA
 }
 
 // Données de benchmarks pour la comparaison
@@ -61,6 +69,20 @@ export class PerformanceAIAnalyzer {
     // Identifier les points forts et faibles
     const { strongestArea, weakestArea } = this.identifyStrengthsWeaknesses(metrics)
     
+    // 🤖 NOUVEAU : Générer conseils IA personnalisés
+    let aiSalesScript = undefined
+    let aiObjectionHandling = undefined
+    
+    if (openai) {
+      try {
+        const aiAdvice = await this.generateAIAdvice(metrics, insights)
+        aiSalesScript = aiAdvice.salesScript
+        aiObjectionHandling = aiAdvice.objectionHandling
+      } catch (error) {
+        console.error('Error generating AI advice:', error)
+      }
+    }
+    
     return {
       overallScore,
       trend,
@@ -68,7 +90,54 @@ export class PerformanceAIAnalyzer {
       recommendations,
       nextGoals,
       weakestArea,
-      strongestArea
+      strongestArea,
+      aiSalesScript,
+      aiObjectionHandling
+    }
+  }
+
+  // 🤖 NOUVEAU : Générer conseils IA personnalisés avec OpenAI
+  private async generateAIAdvice(metrics: PerformanceMetricsData, insights: AIInsight[]) {
+    if (!openai) throw new Error('OpenAI not configured')
+
+    const prompt = `Tu es un coach commercial expert chez Sixt. Analyse ces performances et donne des conseils ultra-concrets.
+
+DONNÉES PERFORMANCE:
+- Taux assurance: ${metrics.insuranceRate.toFixed(1)}% (benchmark: 75%)
+- Taux upgrade: ${metrics.upgradeRate.toFixed(1)}% (benchmark: 40%)
+- Revenus par contrat: ${metrics.revenuePerContract.toFixed(0)}€ (benchmark: 200€)
+- Score régularité: ${metrics.consistencyScore}%
+
+POINTS FAIBLES DÉTECTÉS:
+${insights.filter(i => i.priority === 'high').map(i => `- ${i.title}: ${i.description}`).join('\n')}
+
+GÉNÈRE:
+1. SCRIPT_VENTE: Une phrase d'accroche personnalisée pour vendre assurance/upgrade
+2. GESTION_OBJECTION: Une technique pour surmonter "c'est trop cher"
+
+Format: JSON avec clés "salesScript" et "objectionHandling". Sois concret et adapté à Sixt.`
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { 
+          role: 'system', 
+          content: 'Tu es un coach commercial expert. Réponds uniquement en JSON valide avec les clés demandées.' 
+        },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 300
+    })
+
+    try {
+      const content = response.choices[0]?.message?.content || '{}'
+      return JSON.parse(content)
+    } catch {
+      return {
+        salesScript: "Excellente nouvelle ! J'ai exactement l'assurance qui vous protège à 100% pour seulement quelques euros par jour.",
+        objectionHandling: "Je comprends votre préoccupation. Pensez-y : 8€ par jour, c'est moins qu'un café, mais ça vous évite potentiellement 2000€ de franchise en cas de souci."
+      }
     }
   }
   
